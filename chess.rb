@@ -1,4 +1,11 @@
+require 'debugger'
 require 'colorize'
+
+
+load './piece.rb'
+load './pawn.rb'
+load './stepping_pieces.rb'
+load './sliding_pieces.rb'
 
 class Chessboard
   attr_accessor :board
@@ -36,9 +43,10 @@ class Chessboard
     end
     
     def display_board
-      display_string = ""
+      display_string = "   0  1  2  3  4  5  6  7 \n"
       alternate_color = true
       @board.each_with_index do |rows, row_index|
+        display_string << "#{row_index} "
         rows.each_with_index do |space, col_index|
           if alternate_color
             display_string << " ".on_black if space.nil?
@@ -98,19 +106,20 @@ class Chessboard
   end
   
   def move(start_pos, end_pos)
-    raise StandardError.new("No piece there!") if self[start_pos].nil?
     piece_to_move = self[start_pos]
+    raise StandardError.new("No piece there!") if piece_to_move.nil?
     unless piece_to_move.moves.include?(end_pos)
       raise StandardError.new("Can't move there!")   
     end
+    move!(start_pos, end_pos)
+    
+  end
+  
+  def move!(start_pos, end_pos)
+    piece_to_move = self[start_pos]
     self[start_pos] = nil
     piece_to_move.position = end_pos
-    unless self[end_pos].nil?
-      captured_piece = self[end_pos]
-      captured_piece.position = nil
-    end
     self[end_pos] = piece_to_move
-    
   end
   
   def dup
@@ -127,184 +136,23 @@ class Chessboard
     board_dup
   end
   
-end
-
-class Piece
-  DIAGONALS = [[1,1], [-1, 1], [-1, -1], [1, -1]]
-  ORTHOGONALS = [[1, 0], [0, 1], [-1, 0], [0, -1]]
-  
-  attr_reader :color
-  attr_accessor :position, :board
-  
-  def initialize(board, position, color)
-    @board, @position, @color = board, position, color
-  end
-  
-  def occupied_by_enemy?(position)
-    if @board[position].nil?
-      return false
-    end
-    
-    self.color != board[position].color
-  end
-  
-  def valid_moves
-    moves = self.moves
-    moves.reject do |move|
-      self.move_into_check?(move)
-    end
-  end
-
-  def move_into_check?(pos)
-    board_dup = self.board.dup
-    board_dup[self.position] = nil
-    board_dup[pos] = self
-    board_dup.in_check?(self.color)
-  end
-  
-
-  
-  private
-  
-  def update_position(position, offset)
-    x,y = position
-    delta_x, delta_y = offset
-    [delta_x + x, y + delta_y]
-  end
-  
-  def invalid?(position)
-    occupied?(position) || !on_board?(position)
-  end
-  
-  def occupied?(position)
-    false
-  end
-  
-  def on_board?(position)
-    position.first.between?(0, 7) && position.last.between?(0, 7)
-  end
-
-end
-
-class SlidingPiece < Piece
-
-  def moves
-    move_array = []
-    
-    move_dirs.each do |offset|
-      position = @position
-      until invalid?(position)
-        move_array << position unless position == @position
-        position = update_position(position, offset)
-      end
-    end
-    move_array
+  def checkmate?(color)
+    pieces = @board.flatten.select {|piece| !piece.nil? && piece.color == color}
+    # p pieces
+    pieces.all? {|piece| piece.valid_moves.empty? }
+    # p pieces
   end
   
 end
 
-class Rook < SlidingPiece
-  def move_dirs
-    ORTHOGONALS
-  end
-  
-  def to_s
-    @color == "w" ? "\u2656" : "\u265C"
-  end
-end
 
-class Bishop < SlidingPiece
-  def move_dirs
-    DIAGONALS
-  end 
-  
-  def to_s
-    @color == "w" ? "\u2657" : "\u265D"
-  end
-end
 
-class Queen < SlidingPiece
-  def move_dirs
-    DIAGONALS + ORTHOGONALS
-  end
-  
-  def to_s
-    @color == "w" ? "\u2655" : "\u265B"
-  end
-end
+b = Chessboard.new
+b.display_board
+b.move([6,5], [5,5])
+b.move([1,4], [3,4])
+b.move([6,6], [4,6])
+b.move([0,3], [4,7])
 
-class SteppingPiece < Piece
-  
-  def moves
-    move_array = []
-    move_dirs.each do |offset|
-      position = update_position(@position, offset)
-      unless invalid?(position)
-        move_array << position 
-      end
-    end
-    move_array
-  end
-  
-end
-
-class King < SteppingPiece
-  def move_dirs
-    DIAGONALS + ORTHOGONALS
-  end
-  
-  def to_s
-    @color == "w" ? "\u2654" : "\u265A"
-  end
-end
-
-class Knight < SteppingPiece
-  
-  def move_dirs
-    [[2,1],[2,-1],[1,2],[1,-2],[-2,1],[-2,-1],[-1,2],[-1,-2]]
-  end
-  
-  def to_s
-    @color == "w" ? "\u2658" : "\u265E"
-  end
-  
-end
-
-class Pawn < Piece
-  def move_dirs
-    [[1, 0], [2, 0]]
-  end
-  
-  def attack_dirs
-    [[1, 1], [1, -1]]
-  end
-  
-  def moves
-    offset_array = []
-    if @color == "w"
-      move_directions = move_dirs.map{ |offset| [offset.first * -1, offset.last] }
-      attack_directions = attack_dirs.map{ |offset| [offset.first * -1, offset.last] }
-      at_home = @position[0] == 6
-    else
-      move_directions = move_dirs
-      attack_directions = attack_dirs
-      at_home = @position[0] == 1
-    end
-    
-    offset_array << move_directions.first
-    if at_home
-      offset_array << move_directions.last
-    end
-    
-    attack_directions.each do |possible_space|
-      offset_array << possible_space #if occupied_by_enemy?(possible_space)
-    end
-    
-    offset_array.map{|offset| update_position(@position, offset)}
-  end
-  
-  def to_s
-    @color == "w" ? "\u2659" : "\u265F"
-  end
-  
-end
+b.display_board
+p b.checkmate?("w")
