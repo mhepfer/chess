@@ -1,6 +1,8 @@
 require 'colorize'
 
 class Chessboard
+  attr_accessor :board
+  
   def initialize
     @board = Array.new(8){Array.new(8) {nil}}
     populate_board
@@ -95,13 +97,44 @@ class Chessboard
     end
   end
   
+  def move(start_pos, end_pos)
+    raise StandardError.new("No piece there!") if self[start_pos].nil?
+    piece_to_move = self[start_pos]
+    unless piece_to_move.moves.include?(end_pos)
+      raise StandardError.new("Can't move there!")   
+    end
+    self[start_pos] = nil
+    piece_to_move.position = end_pos
+    unless self[end_pos].nil?
+      captured_piece = self[end_pos]
+      captured_piece.position = nil
+    end
+    self[end_pos] = piece_to_move
+    
+  end
+  
+  def dup
+    board_dup = Chessboard.new
+    board_dup.board = Array.new(8){Array.new(8) {nil}}
+    self.board.each_with_index do |row, row_index|
+      row.each_with_index do |piece, col_index|
+        unless piece.nil?
+          new_piece = piece.class.new(board_dup, [row_index,col_index], piece.color)
+          board_dup[[row_index,col_index]] = new_piece
+        end
+      end
+    end
+    board_dup
+  end
+  
 end
 
 class Piece
   DIAGONALS = [[1,1], [-1, 1], [-1, -1], [1, -1]]
   ORTHOGONALS = [[1, 0], [0, 1], [-1, 0], [0, -1]]
   
-  attr_reader :position, :color
+  attr_reader :color
+  attr_accessor :position, :board
   
   def initialize(board, position, color)
     @board, @position, @color = board, position, color
@@ -114,7 +147,23 @@ class Piece
     
     self.color != board[position].color
   end
+  
+  def valid_moves
+    moves = self.moves
+    moves.reject do |move|
+      self.move_into_check?(move)
+    end
+  end
 
+  def move_into_check?(pos)
+    board_dup = self.board.dup
+    board_dup[self.position] = nil
+    board_dup[pos] = self
+    board_dup.in_check?(self.color)
+  end
+  
+
+  
   private
   
   def update_position(position, offset)
@@ -134,6 +183,7 @@ class Piece
   def on_board?(position)
     position.first.between?(0, 7) && position.last.between?(0, 7)
   end
+
 end
 
 class SlidingPiece < Piece
