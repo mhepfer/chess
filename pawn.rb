@@ -19,9 +19,12 @@ class Pawn < Piece
       at_home = @position[0] == 1
     end
     
-    offset_array << move_directions.first unless occupied?(update_position(@position, move_directions.first))
+    offset_array << move_directions.first unless 
+          occupied?(update_position(@position, move_directions.first))
+          
     if at_home
-      offset_array << move_directions.last unless occupied?(update_position(@position, move_directions.last))
+      offset_array << move_directions.last unless 
+            occupied?(update_position(@position, move_directions.last))
     end
     
     attack_directions.each do |offset|      

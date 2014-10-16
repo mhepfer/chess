@@ -1,6 +1,4 @@
 class Piece
-  DIAGONALS = [[1,1], [-1, 1], [-1, -1], [1, -1]]
-  ORTHOGONALS = [[1, 0], [0, 1], [-1, 0], [0, -1]]
   
   attr_reader :color
   attr_accessor :position, :board
@@ -18,7 +16,6 @@ class Piece
   end
   
   def valid_moves
-    moves = self.moves
     moves.reject do |move|
       self.move_into_check?(move)
     end
@@ -27,9 +24,11 @@ class Piece
   def move_into_check?(pos)
     board_dup = self.board.dup
     board_dup.move!(self.position, pos)
-    # board_dup[self.position] = nil
-    # board_dup[pos] = self
     board_dup.in_check?(self.color)
+  end
+  
+  def occupied?(position)
+    !!@board[position]
   end
   
   private
@@ -44,10 +43,7 @@ class Piece
      !on_board?(position) || occupied?(position)
   end
   
-  def occupied?(position)
-    test = @board[position]
-    !test.nil?
-  end
+  
   
   def on_board?(position)
     position.first.between?(0, 7) && position.last.between?(0, 7)

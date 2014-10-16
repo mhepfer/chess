@@ -1,12 +1,13 @@
 class SlidingPiece < Piece
+  DIAGONALS = [[1,1], [-1, 1], [-1, -1], [1, -1]]
+  ORTHOGONALS = [[1, 0], [0, 1], [-1, 0], [0, -1]]
 
   def moves
     move_array = []
     move_dirs.each do |offset|
       position = update_position(@position, offset)
       until invalid?(position)
-        move_array << position #unless position == @position
-        #we need to stop adding moves after we encouter a friendly or enemy
+        move_array << position
         position = update_position(position, offset)
       end
       if on_board?(position) && @board[position].color != self.color
@@ -15,10 +16,17 @@ class SlidingPiece < Piece
     end
     move_array
   end
-  
 end
 
 class Rook < SlidingPiece
+  
+  attr_accessor :moved
+  
+  def initialize(board, position, color)
+    super(board, position, color)
+    moved = false
+  end
+  
   def move_dirs
     ORTHOGONALS
   end
